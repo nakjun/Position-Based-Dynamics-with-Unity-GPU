@@ -10,6 +10,7 @@ public class ClothModel : MonoBehaviour
     public float width = 5.0f;
     public float height = 5.0f;
     public bool drawLines = true;    
+    public bool drawNodes = false;    
     private int NumParticles;
     public float stretchStiffness;
     public float bendStiffness;
@@ -18,10 +19,11 @@ public class ClothModel : MonoBehaviour
 
     private Matrix4x4d RTS;
     public Vector3[] positions;
+    public bool[] isSimulated;
     public int[] indices;
     public List<int> edgeList;
-    public ComputeShader shader;
-    
+    public ComputeShader shader;    
+    public Mesh mesh;    
 
     // Start is called before the first frame update
     void Awake()
@@ -32,7 +34,19 @@ public class ClothModel : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        
+        if(drawLines)
+        {
+            DrawLines();
+        }
+    }
+
+    public void DrawLines()
+    {
+        for(int i=0;i<edgeList.Count;)
+        {
+            Debug.DrawLine(positions[edgeList[i]],positions[edgeList[i+1]],Color.white);
+            i = i+2;
+        }
     }
 
     public void CreateModel()
@@ -43,6 +57,13 @@ public class ClothModel : MonoBehaviour
         CreateParticles();
         CreateEdge();
 
+        mesh = new Mesh();
+        mesh.vertices = positions;
+        mesh.triangles = indices;
+        mesh.RecalculateNormals();
+
+        this.GetComponent<MeshFilter>().mesh = mesh;     
+
         Debug.Log("Create Success");
         Debug.Log("# of particles : " + positions.Length);
         Debug.Log("# of indices : " + indices.Length);
@@ -51,16 +72,16 @@ public class ClothModel : MonoBehaviour
 
     public void CreateParticles()
     {
-        positions = new Vector3[xSize * ySize];
+        positions = new Vector3[(xSize+1) * (ySize+1)];
         indices = new int[xSize * ySize * 2 * 3];
 
         float dx = width / xSize;
         float dy = height / ySize;
 
         int index = 0;
-        for (int j = 0; j < ySize; j++)
+        for (int j = 0; j <= ySize; j++)
         {
-            for (int i = 0; i < xSize; i++)
+            for (int i = 0; i <= xSize; i++)
             {
                 float x = dx * i;
                 float z = dy * j;
@@ -103,24 +124,13 @@ public class ClothModel : MonoBehaviour
                 }
             }
         }
-
-        for(int i=0;i<positions.Length;i++)
+        
+        if(drawNodes)
         {
-            Instantiate(node, positions[i] ,Quaternion.identity);
-        }
-    }
-
-    private void OnRenderObject()
-    {
-        if (drawLines)
-        {
-            Camera camera = Camera.current;
-            DrawLines.DrawGrid(camera, Color.white, min, max, 1, transform.localToWorldMatrix);
-
-            Matrix4x4d m = MathConverter.ToMatrix4x4d(transform.localToWorldMatrix);
-            DrawLines.DrawVertices(LINE_MODE.TRIANGLES, camera, Color.red, Body.Positions, Body.Indices, m);
-
-            DrawLines.DrawBounds(camera, Color.green, StaticBounds, Matrix4x4d.Identity);
+            for(int i=0;i<positions.Length;i++)
+            {
+                Instantiate(node, positions[i] ,Quaternion.identity);
+            }
         }
     }
 
