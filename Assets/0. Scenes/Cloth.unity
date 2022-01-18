@@ -166,21 +166,21 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b7a37b841f8cc284380ddcac26f91853, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  timeStep: 0.01
-  xSize: 8
-  ySize: 8
-  width: 5
-  height: 5
-  drawLines: 1
-  stretchStiffness: 0
-  bendStiffness: 0
+  xSize: 15
+  ySize: 15
+  width: 10
+  height: 10
+  drawLines: 0
+  drawNodes: 0
   node: {fileID: 5527377994374063700, guid: 76a75e5f5897ae04eafdb41884f49843, type: 3}
-  positions: []
-  isSimulated: 
-  indices: 
-  edgeList: 
-  shader: {fileID: 0}
+  shader: {fileID: 7200000, guid: c2ec13610972ac8489f999ab102ac85b, type: 3}
   mesh: {fileID: 0}
+  distanceCompressionStiffness: 1.5
+  distanceStretchStiffness: 1.5
+  timestep: 0.02
+  iterationNum: 5
+  gravity: {x: 0, y: -9.8, z: 0}
+  workGroupSize: 1024
 --- !u!23 &696848512
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -313,13 +313,13 @@ Transform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 705507993}
-  m_LocalRotation: {x: 0.40821788, y: -0.23456968, z: 0.10938163, w: 0.8754261}
+  m_LocalRotation: {x: 0, y: 0.9063079, z: -0.42261827, w: 0}
   m_LocalPosition: {x: 0, y: 3, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
   m_Father: {fileID: 0}
   m_RootOrder: 1
-  m_LocalEulerAnglesHint: {x: 50, y: -30, z: 0}
+  m_LocalEulerAnglesHint: {x: 50, y: 180, z: 0}
 --- !u!1 &963194225
 GameObject:
   m_ObjectHideFlags: 0
@@ -396,10 +396,10 @@ Transform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 963194225}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 1, z: -10}
+  m_LocalRotation: {x: 0, y: 1, z: 0, w: 0}
+  m_LocalPosition: {x: 0, y: -5, z: 10}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
   m_Father: {fileID: 0}
   m_RootOrder: 0
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 180, z: 0}

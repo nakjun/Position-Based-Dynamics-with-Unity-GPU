@@ -1,0 +1,180 @@
+﻿/*
+    Writer          : njsung
+    Date            : 22-01-18
+    Description     : PBD Solver 
+    
+*/
+
+/* Struct Definition */
+struct EdgeStruct {
+	int startIndex;
+	int endIndex;
+};
+struct DistanceConstraintStruct {
+	EdgeStruct edge;
+	float restLength;
+};
+
+uint numParticles;
+uint numDistanceConstraints;
+float3 gravity;
+float invMass;
+float dt;
+float stretchStiffness;
+float compressionStiffness;
+float bendingStiffness;
+
+RWStructuredBuffer<float3> positions;
+RWStructuredBuffer<int> isSimulated;
+RWStructuredBuffer<float3> projectedPositions;
+RWStructuredBuffer<float3> velocities;
+RWStructuredBuffer<float3> deltaPos;
+RWStructuredBuffer<uint3> deltaPosAsInt;
+RWStructuredBuffer<int> deltaCount;
+
+StructuredBuffer<DistanceConstraintStruct> distanceConstraints;
+
+/* Apply Externeal Force to Particles */
+#pragma kernel ApplyExternalForces
+[numthreads(1024, 1, 1)]
+void ApplyExternalForces(uint3 id : SV_DispatchThreadID) {
+	if (id.x >= numParticles) return;
+    if (isSimulated[id.x]==0) return;
+
+	float3 velocity = velocities[id.x] + gravity * invMass * dt;
+	velocities[id.x] = velocity;
+}
+
+/* Calculate Damping of Velocity */
+#pragma kernel DampVelocities
+[numthreads(1024, 1, 1)]
+void DampVelocities(uint3 id : SV_DispatchThreadID) {
+	if (id.x >= numParticles) return;
+    if (isSimulated[id.x]==0) return;
+
+	float3 velocity = velocities[id.x];
+	velocities[id.x] = velocity * 0.998f;
+}
+
+/* Calculate Explicit Euler Method for projection of particle position */
+#pragma kernel ApplyExplicitEuler
+[numthreads(1024, 1, 1)]
+void ApplyExplicitEuler(uint3 id : SV_DispatchThreadID) {
+	if (id.x >= numParticles) return;
+    if (isSimulated[id.x]==0) return;
+
+	projectedPositions[id.x] = positions[id.x] + velocities[id.x] * dt;
+}
+
+/* Update Position Buffer */
+#pragma kernel UpdatePositions
+[numthreads(1024, 1, 1)]
+void UpdatePositions(uint3 id : SV_DispatchThreadID) {
+	if (id.x >= numParticles) return;
+    if (isSimulated[id.x]==0) return;
+
+	velocities[id.x] = (projectedPositions[id.x] - positions[id.x]) / dt;
+	positions[id.x] = projectedPositions[id.x];
+}
+
+
+/*
+    Writer          : njsung
+    Date            : 22-01-18
+    Description     : Project Constratins
+*/
+
+/* helper function for atomic add */
+void AtomicAddDelta(int indexIntoDeltaPos, float newDeltaVal, int axis) {
+	uint i_val = asuint(newDeltaVal);
+	uint tmp0 = 0;
+	uint tmp1;
+
+	[allow_uav_condition]
+	while (true) {
+		InterlockedCompareExchange(deltaPosAsInt[indexIntoDeltaPos][axis], tmp0, i_val, tmp1);
+
+		if (tmp1 == tmp0) {
+			break;
+		}
+
+		tmp0 = tmp1;
+		i_val = asuint(newDeltaVal + asfloat(tmp1));
+	}
+
+	return;
+}
+
+/* function for project distance constraints */
+#pragma kernel ProjectDistanceConstraintDeltas
+//by yjchoi
+[numthreads(1024, 1, 1)]
+void ProjectDistanceConstraintDeltas(uint3 id : SV_DispatchThreadID) {
+	if (id.x >= numDistanceConstraints) return;
+
+	// read data from the current distance constraint
+	DistanceConstraintStruct constraint = distanceConstraints[id.x];
+
+	int startIndex = constraint.edge.startIndex;
+	int endIndex = constraint.edge.endIndex;
+	float restLength = constraint.restLength;
+	
+	// atomic add the number of constraints to deltaCount buffer
+	InterlockedAdd(deltaCount[startIndex], 1);
+	InterlockedAdd(deltaCount[endIndex], 1);
+
+	// Calculate Deltas	
+	float3 pi = projectedPositions[startIndex];
+	float3 pj = projectedPositions[endIndex];
+	
+    // make edge vector
+	float3 n = pi - pj;
+	
+    // get current length
+	float L = length(n);
+
+	// normalize edge vector
+	if (L >= 1e-7) {
+		n = normalize(n);
+	}
+	float wi = invMass;
+	float wj = invMass;
+	float stiffness = L < restLength ? compressionStiffness : stretchStiffness;
+
+	float3 deltaPosPI = -stiffness * wi / (wi + wj) * (L - restLength) * n; //Minus
+	float3 deltaPosPJ = stiffness * wj / (wi + wj) * (L - restLength) * n; //Plus
+
+	AtomicAddDelta(startIndex, deltaPosPI.x, 0);
+	AtomicAddDelta(startIndex, deltaPosPI.y, 1);
+	AtomicAddDelta(startIndex, deltaPosPI.z, 2);
+
+	AtomicAddDelta(endIndex, deltaPosPJ.x, 0);
+	AtomicAddDelta(endIndex, deltaPosPJ.y, 1);
+	AtomicAddDelta(endIndex, deltaPosPJ.z, 2);
+}
+
+#pragma kernel AverageConstraintDeltas
+[numthreads(1024, 1, 1)] // TODO: play around with numthread size
+void AverageConstraintDeltas(uint3 id : SV_DispatchThreadID) {
+	if (id.x >= numParticles) return;
+    if (isSimulated[id.x]==0) return;
+
+	int index = id.x;
+
+	if (deltaCount[index] > 0) {
+		deltaPos[index].x = asfloat(deltaPosAsInt[index].x);
+		deltaPos[index].y = asfloat(deltaPosAsInt[index].y);
+		deltaPos[index].z = asfloat(deltaPosAsInt[index].z);
+
+		deltaPos[index] /= deltaCount[index];
+	}
+
+	projectedPositions[index] += deltaPos[index] * 1.5f;
+
+	// reset delta buffers to zero
+	deltaPos[index] = float3(0, 0, 0);
+
+	deltaPosAsInt[index] = uint3(0, 0, 0);
+
+	deltaCount[index] = 0;
+}
