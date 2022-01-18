@@ -107,7 +107,6 @@ void AtomicAddDelta(int indexIntoDeltaPos, float newDeltaVal, int axis) {
 
 /* function for project distance constraints */
 #pragma kernel ProjectDistanceConstraintDeltas
-//by yjchoi
 [numthreads(1024, 1, 1)]
 void ProjectDistanceConstraintDeltas(uint3 id : SV_DispatchThreadID) {
 	if (id.x >= numDistanceConstraints) return;
