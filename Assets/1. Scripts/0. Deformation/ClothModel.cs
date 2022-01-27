@@ -2,9 +2,12 @@
 using System.Collections.Generic;
 using UnityEngine;
 using Common.Mathematics.LinearAlgebra;
+using System.Linq;
 
 public class ClothModel : MonoBehaviour
 {
+    [Header("Create Cloth")]
+    public bool createMode;
     public int xSize = 8;
     public int ySize = 8;
     public float width = 10.0f;
@@ -22,16 +25,26 @@ public class ClothModel : MonoBehaviour
     private int[] isSimulated;
     private int[] indices;
     private List<int> edgeList;
+    private Triangle[] triangles;
     public ComputeShader shader;
+    
+    [Header("Object Mesh")]
     public Mesh mesh;
+    public GameObject simulationObject;
 
     /* Position Based Dynamics */
-    private int numDistanceConstraints;
+    [Header("Simulation Parameters")]    
+    public int numDistanceConstraints;
     private PBDStruct.DistanceConstraintStruct[] distanceConstraints;
     public float distanceCompressionStiffness = 0.8f;
     public float distanceStretchStiffness = 0.8f;
+
+    public int numBendingConstraints;
+    private PBDStruct.BendingConstraintStruct[] bendingConstraints;
+    public float bendingCompressionStiffness = 0.8f;
+    public float bendingStretchStiffness = 0.8f;
     
-    [Header("Simulation Parameters")]
+    
     public float timestep = 0.02f;
     public int iterationNum = 5;
     private float nextFrameTime = 0f;
@@ -67,7 +80,13 @@ public class ClothModel : MonoBehaviour
     // Start is called before the first frame update
     void Awake()
     {
-        CreateModel();
+        if(createMode)
+            CreateModel();
+        else
+        {
+            mesh = simulationObject.GetComponent<MeshFilter>().mesh;
+            SetModelInformations();            
+        }
         SetupPBD();
         SetupComputeBuffers();
     }
@@ -126,6 +145,14 @@ public class ClothModel : MonoBehaviour
         }
     }
 
+    public void SetModelInformations()
+    {
+        positions = mesh.vertices;
+        numParticles = mesh.vertices.Length;
+        CreateEdge();
+        CreateTriangles();
+    }
+
     private void UpdatePositions()
     {
         shader.Dispatch(updatePositionsKernel, numGroups_Vertices, 1, 1);
@@ -160,18 +187,28 @@ public class ClothModel : MonoBehaviour
         //Create Particles
         CreateParticles();
         CreateEdge();
-
-        mesh = new Mesh();
-        mesh.vertices = positions;
-        mesh.triangles = indices;
-        mesh.RecalculateNormals();
-
-        this.GetComponent<MeshFilter>().mesh = mesh;
-
+        SetupMeshInformation();
+        CreateTriangles();
+        
         Debug.Log("Create Success");
         Debug.Log("# of particles : " + positions.Length);
         Debug.Log("# of indices : " + indices.Length);
         Debug.Log("# of edges : " + edgeList.Count);
+    }
+
+    public void SetupMeshInformation()
+    {
+        if(createMode)
+        {
+            if(mesh==null)
+            mesh = new Mesh();
+
+            mesh.vertices = positions;
+            mesh.triangles = indices;
+            mesh.RecalculateNormals();
+
+            this.GetComponent<MeshFilter>().mesh = mesh;
+        }
     }
 
     public void CreateParticles()
@@ -179,8 +216,8 @@ public class ClothModel : MonoBehaviour
         positions = new Vector3[(xSize + 1) * (ySize + 1)];
         indices = new int[xSize * ySize * 2 * 3];
 
-        float dx = width / xSize;
-        float dy = height / ySize;
+        float dx = width / (xSize+1);
+        float dy = height / (ySize+1);
 
         int index = 0;
         for (int j = 0; j <= ySize; j++)
@@ -229,11 +266,13 @@ public class ClothModel : MonoBehaviour
             }
         }
 
+
+
         if (drawNodes)
         {
             for (int i = 0; i < positions.Length; i++)
             {
-                Instantiate(node, positions[i], Quaternion.identity);
+                Instantiate(node, positions[i], Quaternion.identity);                
             }
         }
     }
@@ -244,7 +283,11 @@ public class ClothModel : MonoBehaviour
             {0,1}, {1,2}, {2,0}
         };
 
-        int numTris = indices.Length / 3;
+        int numTris = 0;
+        if(createMode)
+            numTris = indices.Length / 3;
+        else
+            numTris = mesh.triangles.Length / 3;
 
         edgeList = new List<int>();
         HashSet<Vector2i> set = new HashSet<Vector2i>();
@@ -254,8 +297,19 @@ public class ClothModel : MonoBehaviour
         {
             for (int i = 0; i < 3; i++)
             {
-                int i0 = indices[3 * n + edges[i, 0]];
-                int i1 = indices[3 * n + edges[i, 1]];
+                int i0, i1;
+
+
+                if(createMode)
+                {
+                    i0 = indices[3 * n + edges[i, 0]];
+                    i1 = indices[3 * n + edges[i, 1]];
+                }
+                else
+                {
+                    i0 = mesh.triangles[3 * n + edges[i, 0]];
+                    i1 = mesh.triangles[3 * n + edges[i, 1]];
+                }
 
                 Vector2i edge = new Vector2i(i0, i1);
                 Vector2i redge = new Vector2i(i1, i0);
@@ -268,6 +322,16 @@ public class ClothModel : MonoBehaviour
                     edgeList.Add(i1);
                 }
             }
+        }
+    }
+    public void CreateTriangles()
+    {
+        int[] triangleIds = mesh.GetTriangles(0);
+
+        triangles = new Triangle[triangleIds.Length / 3];
+        for (int i = 0; i < triangles.Length; i++)
+        {
+            triangles[i] = new Triangle(triangleIds[i * 3], triangleIds[i * 3 + 1], triangleIds[i * 3 + 2]);            
         }
     }
 
@@ -293,8 +357,8 @@ public class ClothModel : MonoBehaviour
         for(int i = 0; i < numParticles; i++)
         {
             isSimulated[i] = 1;
-        }
-        for(int i=0;i<xSize+1; i++)
+        }        
+        for(int i=0;i<numParticles/2; i++)
         {
             isSimulated[i] = 0;
         }
@@ -377,6 +441,7 @@ public class ClothModel : MonoBehaviour
     public void SetupPBD()
     {
         AddDistanceConstraints();
+        AddBendingConstraints();
     }
 
     private void AddDistanceConstraints()
@@ -397,119 +462,119 @@ public class ClothModel : MonoBehaviour
     }
     private void AddBendingConstraints()
     {
-        // Dictionary<Edge, List<Triangle>> wingEdges = new Dictionary<Edge, List<Triangle>>(new EdgeComparer());
+        Dictionary<Edge, List<Triangle>> wingEdges = new Dictionary<Edge, List<Triangle>>(new EdgeComparer());
 
-        // // map edges to all of the faces to which they are connected
-        // foreach (Triangle tri in triangles)
-        // {
-        //     Edge e1 = new Edge(tri.vertices[0], tri.vertices[1]);
-        //     if (wingEdges.ContainsKey(e1) && !wingEdges[e1].Contains(tri))
-        //     {
-        //         wingEdges[e1].Add(tri);
-        //     }
-        //     else
-        //     {
-        //         List<Triangle> tris = new List<Triangle>();
-        //         tris.Add(tri);
-        //         wingEdges.Add(e1, tris);
-        //     }
+        // map edges to all of the faces to which they are connected
+        foreach (Triangle tri in triangles)
+        {
+            Edge e1 = new Edge(tri.vertices[0], tri.vertices[1]);
+            if (wingEdges.ContainsKey(e1) && !wingEdges[e1].Contains(tri))
+            {
+                wingEdges[e1].Add(tri);
+            }
+            else
+            {
+                List<Triangle> tris = new List<Triangle>();
+                tris.Add(tri);
+                wingEdges.Add(e1, tris);
+            }
 
-        //     Edge e2 = new Edge(tri.vertices[0], tri.vertices[2]);
-        //     if (wingEdges.ContainsKey(e2) && !wingEdges[e2].Contains(tri))
-        //     {
-        //         wingEdges[e2].Add(tri);
-        //     }
-        //     else
-        //     {
-        //         List<Triangle> tris = new List<Triangle>();
-        //         tris.Add(tri);
-        //         wingEdges.Add(e2, tris);
-        //     }
+            Edge e2 = new Edge(tri.vertices[0], tri.vertices[2]);
+            if (wingEdges.ContainsKey(e2) && !wingEdges[e2].Contains(tri))
+            {
+                wingEdges[e2].Add(tri);
+            }
+            else
+            {
+                List<Triangle> tris = new List<Triangle>();
+                tris.Add(tri);
+                wingEdges.Add(e2, tris);
+            }
 
-        //     Edge e3 = new Edge(tri.vertices[1], tri.vertices[2]);
-        //     if (wingEdges.ContainsKey(e3) && !wingEdges[e3].Contains(tri))
-        //     {
-        //         wingEdges[e3].Add(tri);
-        //     }
-        //     else
-        //     {
-        //         List<Triangle> tris = new List<Triangle>();
-        //         tris.Add(tri);
-        //         wingEdges.Add(e3, tris);
-        //     }
-        // }
+            Edge e3 = new Edge(tri.vertices[1], tri.vertices[2]);
+            if (wingEdges.ContainsKey(e3) && !wingEdges[e3].Contains(tri))
+            {
+                wingEdges[e3].Add(tri);
+            }
+            else
+            {
+                List<Triangle> tris = new List<Triangle>();
+                tris.Add(tri);
+                wingEdges.Add(e3, tris);
+            }
+        }
 
-        // // wingEdges are edges with 2 occurences,
-        // // so we need to remove the lower frequency ones
-        // List<Edge> keyList = wingEdges.Keys.ToList();
-        // foreach (Edge e in keyList)
-        // {
-        //     if (wingEdges[e].Count < 2)
-        //     {
-        //         wingEdges.Remove(e);
-        //     }
-        // }
+        // wingEdges are edges with 2 occurences,
+        // so we need to remove the lower frequency ones
+        List<Edge> keyList = wingEdges.Keys.ToList();
+        foreach (Edge e in keyList)
+        {
+            if (wingEdges[e].Count < 2)
+            {
+                wingEdges.Remove(e);
+            }
+        }
 
-        // numBendingConstraints = wingEdges.Count;
-        // bendingConstraints = new PBDStruct.BendingConstraintStruct[numBendingConstraints];
-        // int j = 0;
-        // foreach (Edge wingEdge in wingEdges.Keys)
-        // {
-        //     // wingEdges are indexed like in the Bridson,
-        //     // Simulation of Clothing with Folds and Wrinkles paper
-        //     //    3
-        //     //    ^
-        //     // 0  |  1
-        //     //    2
-        //     //
+        numBendingConstraints = wingEdges.Count;
+        bendingConstraints = new PBDStruct.BendingConstraintStruct[numBendingConstraints];
+        int j = 0;
+        foreach (Edge wingEdge in wingEdges.Keys)
+        {
+            // wingEdges are indexed like in the Bridson,
+            // Simulation of Clothing with Folds and Wrinkles paper
+            //    3
+            //    ^
+            // 0  |  1
+            //    2
+            //
 
-        //     int[] indices = new int[4];
-        //     indices[2] = wingEdge.startIndex;
-        //     indices[3] = wingEdge.endIndex;
+            int[] indices = new int[4];
+            indices[2] = wingEdge.startIndex;
+            indices[3] = wingEdge.endIndex;
 
-        //     int b = 0;
-        //     foreach (Triangle tri in wingEdges[wingEdge])
-        //     {
-        //         for (int i = 0; i < 3; i++)
-        //         {
-        //             int point = tri.vertices[i];
-        //             if (point != indices[2] && point != indices[3])
-        //             {
-        //                 //tri #1
-        //                 if (b == 0)
-        //                 {
-        //                     indices[0] = point;
-        //                     break;
-        //                 }
-        //                 //tri #2
-        //                 else if (b == 1)
-        //                 {
-        //                     indices[1] = point;
-        //                     break;
-        //                 }
-        //             }
-        //         }
-        //         b++;
-        //     }
+            int b = 0;
+            foreach (Triangle tri in wingEdges[wingEdge])
+            {
+                for (int i = 0; i < 3; i++)
+                {
+                    int point = tri.vertices[i];
+                    if (point != indices[2] && point != indices[3])
+                    {
+                        //tri #1
+                        if (b == 0)
+                        {
+                            indices[0] = point;
+                            break;
+                        }
+                        //tri #2
+                        else if (b == 1)
+                        {
+                            indices[1] = point;
+                            break;
+                        }
+                    }
+                }
+                b++;
+            }
 
-        //     bendingConstraints[j].index0 = indices[0];
-        //     bendingConstraints[j].index1 = indices[1];
-        //     bendingConstraints[j].index2 = indices[2];
-        //     bendingConstraints[j].index3 = indices[3];
-        //     Vector3 p0 = positions[indices[0]];
-        //     Vector3 p1 = positions[indices[1]];
-        //     Vector3 p2 = positions[indices[2]];
-        //     Vector3 p3 = positions[indices[3]];
+            bendingConstraints[j].index0 = indices[0];
+            bendingConstraints[j].index1 = indices[1];
+            bendingConstraints[j].index2 = indices[2];
+            bendingConstraints[j].index3 = indices[3];
+            Vector3 p0 = positions[indices[0]];
+            Vector3 p1 = positions[indices[1]];
+            Vector3 p2 = positions[indices[2]];
+            Vector3 p3 = positions[indices[3]];
 
-        //     Vector3 n1 = (Vector3.Cross(p2 - p0, p3 - p0)).normalized;
-        //     Vector3 n2 = (Vector3.Cross(p3 - p1, p2 - p1)).normalized;
+            Vector3 n1 = (Vector3.Cross(p2 - p0, p3 - p0)).normalized;
+            Vector3 n2 = (Vector3.Cross(p3 - p1, p2 - p1)).normalized;
 
-        //     float d = Vector3.Dot(n1, n2);
-        //     d = Mathf.Clamp(d, -1.0f, 1.0f);
-        //     bendingConstraints[j].restAngle = Mathf.Acos(d);
+            float d = Vector3.Dot(n1, n2);
+            d = Mathf.Clamp(d, -1.0f, 1.0f);
+            bendingConstraints[j].restAngle = Mathf.Acos(d);
 
-        //     j++;
-        // }
+            j++;
+        }
     }
 
     public void ApplyExternalForces()
