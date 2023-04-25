@@ -337,12 +337,6 @@ public class ClothModel : MonoBehaviour
 
     public void SetupStiffness()
     {
-        // for (int i = 0; i < numParticles; i++)
-        // {
-        //     positions[i] = transform.TransformPoint(positions[i]);
-        //     velocities[i] = transform.TransformVector(velocities[i]);
-        // }
-
         positionsBuffer.SetData(positions);
         velocitiesBuffer.SetData(velocities);
                 
@@ -358,7 +352,7 @@ public class ClothModel : MonoBehaviour
         {
             isSimulated[i] = 1;
         }        
-        for(int i=0;i<numParticles/2; i++)
+        for(int i=0;i<xSize; i++)
         {
             isSimulated[i] = 0;
         }

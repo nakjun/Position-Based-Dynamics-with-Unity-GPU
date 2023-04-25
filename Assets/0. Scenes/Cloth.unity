@@ -213,81 +213,6 @@ Transform:
   m_Father: {fileID: 0}
   m_RootOrder: 3
   m_LocalEulerAnglesHint: {x: 0, y: 180, z: 0}
---- !u!1001 &263972156
-PrefabInstance:
-  m_ObjectHideFlags: 0
-  serializedVersion: 2
-  m_Modification:
-    m_TransformParent: {fileID: 0}
-    m_Modifications:
-    - target: {fileID: 7476477041015680278, guid: 47d83c0f97fa2974ab70b0fe2fb93323,
-        type: 3}
-      propertyPath: m_Name
-      value: Tshirt
-      objectReference: {fileID: 0}
-    - target: {fileID: 7821091109666961324, guid: 47d83c0f97fa2974ab70b0fe2fb93323,
-        type: 3}
-      propertyPath: m_LocalPosition.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 7821091109666961324, guid: 47d83c0f97fa2974ab70b0fe2fb93323,
-        type: 3}
-      propertyPath: m_LocalPosition.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 7821091109666961324, guid: 47d83c0f97fa2974ab70b0fe2fb93323,
-        type: 3}
-      propertyPath: m_LocalPosition.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 7821091109666961324, guid: 47d83c0f97fa2974ab70b0fe2fb93323,
-        type: 3}
-      propertyPath: m_LocalRotation.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 7821091109666961324, guid: 47d83c0f97fa2974ab70b0fe2fb93323,
-        type: 3}
-      propertyPath: m_LocalRotation.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 7821091109666961324, guid: 47d83c0f97fa2974ab70b0fe2fb93323,
-        type: 3}
-      propertyPath: m_LocalRotation.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 7821091109666961324, guid: 47d83c0f97fa2974ab70b0fe2fb93323,
-        type: 3}
-      propertyPath: m_LocalRotation.w
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 7821091109666961324, guid: 47d83c0f97fa2974ab70b0fe2fb93323,
-        type: 3}
-      propertyPath: m_RootOrder
-      value: 4
-      objectReference: {fileID: 0}
-    - target: {fileID: 7821091109666961324, guid: 47d83c0f97fa2974ab70b0fe2fb93323,
-        type: 3}
-      propertyPath: m_LocalEulerAnglesHint.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 7821091109666961324, guid: 47d83c0f97fa2974ab70b0fe2fb93323,
-        type: 3}
-      propertyPath: m_LocalEulerAnglesHint.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 7821091109666961324, guid: 47d83c0f97fa2974ab70b0fe2fb93323,
-        type: 3}
-      propertyPath: m_LocalEulerAnglesHint.z
-      value: 0
-      objectReference: {fileID: 0}
-    m_RemovedComponents: []
-  m_SourcePrefab: {fileID: 100100000, guid: 47d83c0f97fa2974ab70b0fe2fb93323, type: 3}
---- !u!1 &263972157 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 7476477041015680278, guid: 47d83c0f97fa2974ab70b0fe2fb93323,
-    type: 3}
-  m_PrefabInstance: {fileID: 263972156}
-  m_PrefabAsset: {fileID: 0}
 --- !u!1 &696848509
 GameObject:
   m_ObjectHideFlags: 0
@@ -333,9 +258,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b7a37b841f8cc284380ddcac26f91853, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  createMode: 0
-  xSize: 16
-  ySize: 16
+  createMode: 1
+  xSize: 128
+  ySize: 128
   width: 10
   height: 10
   drawLines: 0
@@ -343,12 +268,12 @@ MonoBehaviour:
   node: {fileID: 5527377994374063700, guid: 76a75e5f5897ae04eafdb41884f49843, type: 3}
   shader: {fileID: 7200000, guid: c2ec13610972ac8489f999ab102ac85b, type: 3}
   mesh: {fileID: 0}
-  simulationObject: {fileID: 263972157}
+  simulationObject: {fileID: 0}
   numDistanceConstraints: 0
   distanceCompressionStiffness: 1.5
-  distanceStretchStiffness: 1.5
+  distanceStretchStiffness: 0.5
   numBendingConstraints: 0
-  bendingCompressionStiffness: 0.25
+  bendingCompressionStiffness: 0.45
   bendingStretchStiffness: 0.45
   timestep: 0.02
   iterationNum: 5
