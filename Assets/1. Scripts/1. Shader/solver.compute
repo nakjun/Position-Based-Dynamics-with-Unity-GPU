@@ -1,0 +1,28 @@
+﻿// Compute Shader
+
+struct VertexData {
+    float3 position;
+};
+
+#include "UnityCG.cginc"
+
+RWStructuredBuffer<VertexData> verticesIn;
+RWStructuredBuffer<VertexData> verticesOut : register(u1);
+
+#pragma kernel ComputePosition
+[numthreads(64, 1, 1)]
+void ComputePosition(uint3 id : SV_DispatchThreadID) {
+    float3 position = verticesIn[id.x].position;
+    
+    // Rotate position around origin
+    float3 axis = float3(0, 1, 0);
+    //float angle = radians(2 * (rand(id) - 0.5) * 180.0);
+    float angle = radians(1);
+
+    float3 rotated = position * cos(angle) + cross(axis, position) * sin(angle) + axis * dot(axis, position) * (1 - cos(angle)) + (0.0, -9.8, 0.0);
+    
+    verticesIn[id.x].position = rotated;
+    verticesOut[id.x].position = rotated;
+
+    //verticesIn[id.x] = verticesOut[id.x];
+}

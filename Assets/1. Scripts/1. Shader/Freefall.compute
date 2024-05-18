@@ -1,0 +1,19 @@
+﻿// 낙하 Compute Shader 예시
+#pragma kernel ApplyExplicitEuler
+
+RWStructuredBuffer<float3> positions; // Vertex 위치 데이터
+RWStructuredBuffer<float3> velocities; // Vertex 속도 데이터
+RWStructuredBuffer<float3> projected_positions; // Update된 Vertex 위치 데이터
+float timestep;	  // 프레임 간의 시간 차이
+float3 gravity = float3(0.0f, -9.8f, 0.0f);
+
+int numParticles;
+
+/* Calculate Explicit Euler Method for projection of particle position */
+#pragma kernel ApplyExplicitEuler
+[numthreads(1024, 1, 1)]
+void ApplyExplicitEuler(uint3 id : SV_DispatchThreadID) {
+	if (id.x >= numParticles) return;    
+
+	projected_positions[id.x] = positions[id.x] + velocities[id.x] * timestep;
+}

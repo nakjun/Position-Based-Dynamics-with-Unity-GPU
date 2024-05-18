@@ -27,13 +27,13 @@ public class ClothModel : MonoBehaviour
     private List<int> edgeList;
     private Triangle[] triangles;
     public ComputeShader shader;
-    
+
     [Header("Object Mesh")]
     public Mesh mesh;
     public GameObject simulationObject;
 
     /* Position Based Dynamics */
-    [Header("Simulation Parameters")]    
+    [Header("Simulation Parameters")]
     public int numDistanceConstraints;
     private PBDStruct.DistanceConstraintStruct[] distanceConstraints;
     public float distanceCompressionStiffness = 0.8f;
@@ -43,20 +43,19 @@ public class ClothModel : MonoBehaviour
     private PBDStruct.BendingConstraintStruct[] bendingConstraints;
     public float bendingCompressionStiffness = 0.8f;
     public float bendingStretchStiffness = 0.8f;
-    
-    
+
     public float timestep = 0.02f;
     public int iterationNum = 5;
     private float nextFrameTime = 0f;
-    
+
     [Header("External Forces")]
-    public Vector3 gravity = new Vector3(0,-9.8f,0);
+    public Vector3 gravity = new Vector3(0, -9.8f, 0);
 
     /* Dispatch Parameter values */
     private int numGroups_Vertices;
     private int numGroups_DistanceConstraints;
     private int numGroups_AllConstraints;
-    public int workGroupSize = 1024;    
+    public int workGroupSize = 1024;
 
     /* Compute Buffer */
     private ComputeBuffer positionsBuffer;
@@ -77,16 +76,18 @@ public class ClothModel : MonoBehaviour
     private int updatePositionsKernel;
     private int averageConstraintDeltasKernel;
 
+    private Material material;
     // Start is called before the first frame update
     void Awake()
     {
-        if(createMode)
+        if (createMode)
             CreateModel();
         else
         {
             mesh = simulationObject.GetComponent<MeshFilter>().mesh;
-            SetModelInformations();            
+            SetModelInformations();
         }
+        material = this.GetComponent<MeshRenderer>().materials[0];
         SetupPBD();
         SetupComputeBuffers();
     }
@@ -100,7 +101,7 @@ public class ClothModel : MonoBehaviour
         if (deltaPositionsBuffer != null) deltaPositionsBuffer.Release();
         if (deltaPositionsUIntBuffer != null) deltaPositionsUIntBuffer.Release();
         if (deltaCounterBuffer != null) deltaCounterBuffer.Release();
-        if (distanceConstraintsBuffer !=null) distanceConstraintsBuffer.Release();
+        if (distanceConstraintsBuffer != null) distanceConstraintsBuffer.Release();
     }
 
     // Update is called once per frame
@@ -123,10 +124,10 @@ public class ClothModel : MonoBehaviour
             shader.SetFloat("dt", dt);
 
             ApplyExternalForces();
-            DampVelocities();
+            //DampVezlocities();
             ApplyExplicitEuler();
 
-            for(int j=0;j<iterationNum; j++)
+            for (int j = 0; j < iterationNum; j++)
             {
                 ProjectDistanceConstraintDeltas();
 
@@ -136,7 +137,7 @@ public class ClothModel : MonoBehaviour
             UpdatePositions();
 
         }
-        
+
         UpdateMesh();
 
         if (drawLines)
@@ -160,7 +161,7 @@ public class ClothModel : MonoBehaviour
 
     private void UpdateMesh()
     {
-        // get data from GPU back to CPU
+        // // get data from GPU back to CPU
         positionsBuffer.GetData(positions);
         velocitiesBuffer.GetData(velocities);
 
@@ -169,6 +170,9 @@ public class ClothModel : MonoBehaviour
 
         mesh.RecalculateNormals();
         mesh.RecalculateBounds();
+
+        // material.SetBuffer("positions", positionsBuffer);
+        // Graphics.DrawProcedural(material, mesh.bounds, MeshTopology.Triangles, positions.Length);
     }
 
     public void DrawLines()
@@ -189,7 +193,7 @@ public class ClothModel : MonoBehaviour
         CreateEdge();
         SetupMeshInformation();
         CreateTriangles();
-        
+
         Debug.Log("Create Success");
         Debug.Log("# of particles : " + positions.Length);
         Debug.Log("# of indices : " + indices.Length);
@@ -198,10 +202,10 @@ public class ClothModel : MonoBehaviour
 
     public void SetupMeshInformation()
     {
-        if(createMode)
+        if (createMode)
         {
-            if(mesh==null)
-            mesh = new Mesh();
+            if (mesh == null)
+                mesh = new Mesh();
 
             mesh.vertices = positions;
             mesh.triangles = indices;
@@ -216,8 +220,8 @@ public class ClothModel : MonoBehaviour
         positions = new Vector3[(xSize + 1) * (ySize + 1)];
         indices = new int[xSize * ySize * 2 * 3];
 
-        float dx = width / (xSize+1);
-        float dy = height / (ySize+1);
+        float dx = width / (xSize + 1);
+        float dy = height / (ySize + 1);
 
         int index = 0;
         for (int j = 0; j <= ySize; j++)
@@ -272,7 +276,7 @@ public class ClothModel : MonoBehaviour
         {
             for (int i = 0; i < positions.Length; i++)
             {
-                Instantiate(node, positions[i], Quaternion.identity);                
+                Instantiate(node, positions[i], Quaternion.identity);
             }
         }
     }
@@ -284,7 +288,7 @@ public class ClothModel : MonoBehaviour
         };
 
         int numTris = 0;
-        if(createMode)
+        if (createMode)
             numTris = indices.Length / 3;
         else
             numTris = mesh.triangles.Length / 3;
@@ -300,7 +304,7 @@ public class ClothModel : MonoBehaviour
                 int i0, i1;
 
 
-                if(createMode)
+                if (createMode)
                 {
                     i0 = indices[3 * n + edges[i, 0]];
                     i1 = indices[3 * n + edges[i, 1]];
@@ -331,7 +335,7 @@ public class ClothModel : MonoBehaviour
         triangles = new Triangle[triangleIds.Length / 3];
         for (int i = 0; i < triangles.Length; i++)
         {
-            triangles[i] = new Triangle(triangleIds[i * 3], triangleIds[i * 3 + 1], triangleIds[i * 3 + 2]);            
+            triangles[i] = new Triangle(triangleIds[i * 3], triangleIds[i * 3 + 1], triangleIds[i * 3 + 2]);
         }
     }
 
@@ -339,20 +343,20 @@ public class ClothModel : MonoBehaviour
     {
         positionsBuffer.SetData(positions);
         velocitiesBuffer.SetData(velocities);
-                
+
         shader.SetFloat("stretchStiffness", distanceStretchStiffness);
-        shader.SetFloat("compressionStiffness", distanceCompressionStiffness);            
+        shader.SetFloat("compressionStiffness", distanceCompressionStiffness);
     }
 
     public void SetupComputeBuffers()
     {
         /* Create Buffer */
         isSimulated = new int[numParticles];
-        for(int i = 0; i < numParticles; i++)
+        for (int i = 0; i < numParticles; i++)
         {
             isSimulated[i] = 1;
-        }        
-        for(int i=0;i<xSize; i++)
+        }
+        for (int i = 0; i < xSize; i++)
         {
             isSimulated[i] = 0;
         }
@@ -396,13 +400,13 @@ public class ClothModel : MonoBehaviour
         shader.SetVector("gravity", gravity);
 
         /* Bind Buffer to Compute Shader */
-        shader.SetBuffer(applyExternalForcesKernel,"isSimulated", simulationFlagBuffer);
+        shader.SetBuffer(applyExternalForcesKernel, "isSimulated", simulationFlagBuffer);
         shader.SetBuffer(applyExternalForcesKernel, "velocities", velocitiesBuffer);
-        
-        shader.SetBuffer(dampVelocitiesKernel,"isSimulated", simulationFlagBuffer);
+
+        shader.SetBuffer(dampVelocitiesKernel, "isSimulated", simulationFlagBuffer);
         shader.SetBuffer(dampVelocitiesKernel, "velocities", velocitiesBuffer);
-        
-        shader.SetBuffer(applyExplicitEulerKernel,"isSimulated", simulationFlagBuffer);
+
+        shader.SetBuffer(applyExplicitEulerKernel, "isSimulated", simulationFlagBuffer);
         shader.SetBuffer(applyExplicitEulerKernel, "positions", positionsBuffer);
         shader.SetBuffer(applyExplicitEulerKernel, "projectedPositions", projectedPositionsBuffer);
         shader.SetBuffer(applyExplicitEulerKernel, "velocities", velocitiesBuffer);
@@ -417,7 +421,7 @@ public class ClothModel : MonoBehaviour
         shader.SetBuffer(updatePositionsKernel, "positions", positionsBuffer);
         shader.SetBuffer(updatePositionsKernel, "projectedPositions", projectedPositionsBuffer);
         shader.SetBuffer(updatePositionsKernel, "velocities", velocitiesBuffer);
-        
+
         if (numDistanceConstraints > 0)
         {
             shader.SetBuffer(projectDistanceConstraintDeltasKernel, "projectedPositions", projectedPositionsBuffer);
@@ -429,7 +433,7 @@ public class ClothModel : MonoBehaviour
 
         /* Set Dispatch Parameter values */
         numGroups_Vertices = Mathf.CeilToInt((float)numParticles / workGroupSize);
-        numGroups_DistanceConstraints = Mathf.CeilToInt((float)numDistanceConstraints / workGroupSize);  
+        numGroups_DistanceConstraints = Mathf.CeilToInt((float)numDistanceConstraints / workGroupSize);
     }
 
     public void SetupPBD()
